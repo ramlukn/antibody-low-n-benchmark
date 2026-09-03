@@ -1,0 +1,22 @@
+# Core scientific stack
+numpy>=1.26,<2
+pandas>=2.0
+scipy>=1.11
+scikit-learn>=1.5
+matplotlib>=3.8
+
+# Data
+PyTDC>=1.0.0
+
+# Sequence featurisation
+biopython>=1.83
+rapidfuzz>=3.9
+python-Levenshtein>=0.25
+
+# Protein language model (frozen forward pass only)
+torch>=2.2
+transformers>=4.40
+
+# Utilities
+joblib>=1.3
+tqdm>=4.66
