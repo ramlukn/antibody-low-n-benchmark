@@ -1,0 +1,22 @@
+# environments
+.venv/
+__pycache__/
+*.pyc
+.ipynb_checkpoints/
+
+# data + model caches (regenerate with `make data embed`)
+data/
+!data/.gitkeep
+
+# large intermediate arrays
+*.npy
+*.npz
+*.pt
+
+# OS
+.DS_Store
+
+# run logs
+results/*.log
+results/_qc.csv
+results/learning_curves_quick.csv
