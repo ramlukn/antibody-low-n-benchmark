@@ -1,0 +1,7 @@
+dataset,n,task,target,summary,unique_heavy,unique_light
+SAbDab_Chen,2409,classification,developability,482 positive / 2409 (20.0%),1488,1411
+TAP,241,regression,CDR_Length,"mean 48, sd 3.77, range [39, 60]",241,238
+TAP,241,regression,PSH,"mean 123, sd 16.9, range [83.8, 174]",241,238
+TAP,241,regression,PPC,"mean 0.244, sd 0.493, range [0, 3.16]",241,238
+TAP,241,regression,PNC,"mean 0.403, sd 0.662, range [0, 3.5]",241,238
+TAP,241,regression,SFvCSP,"mean 3.63, sd 7.47, range [-20.4, 36]",241,238
