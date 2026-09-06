@@ -1,0 +1,3 @@
+dataset,h3_fail_frac,l3_fail_frac,h3_median_len,l3_median_len,spearman_vs_TAP_CDR_Length,chainlen_spearman_vs_TAP_CDR_Length
+TAP,0.03319502074688797,0.03734439834024896,11.0,9.0,0.6573393672938997,0.9964609253507203
+SAbDab_Chen,0.10294728102947281,0.0668327106683271,11.0,9.0,,
