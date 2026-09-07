@@ -1,0 +1,13 @@
+dataset,target,split,esm_beats_cheap_from_N,n_points_esm_ahead,n_points
+SAbDab_Chen,developability,cluster,never,0,7
+SAbDab_Chen,developability,random,all,1,7
+TAP,CDR_Length,cluster,never,0,5
+TAP,CDR_Length,random,never,0,5
+TAP,PNC,cluster,never,0,5
+TAP,PNC,random,never,0,5
+TAP,PPC,cluster,never,0,5
+TAP,PPC,random,never,0,5
+TAP,PSH,cluster,never,0,5
+TAP,PSH,random,all,1,5
+TAP,SFvCSP,cluster,never,0,5
+TAP,SFvCSP,random,never,0,5
