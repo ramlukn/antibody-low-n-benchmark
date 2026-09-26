@@ -1,0 +1,17 @@
+# Configuration only. The project is run from a checkout via `make`, not
+# installed, so there is no build backend here on purpose -- `pythonpath` below
+# is what puts `src/` on the path for the test suite.
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra --strict-markers --strict-config"
+filterwarnings = [
+    # Convergence and other fit-time noise is expected and deliberately
+    # suppressed inside `heads.fit_predict`; anything that escapes to the test
+    # session is something we want to see rather than inherit silently.
+    "default",
+]
+markers = [
+    "real_data: needs the TDC downloads in data/raw (run `make data`)",
+]

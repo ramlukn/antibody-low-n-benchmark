@@ -1,0 +1,16 @@
+# Test-only dependencies: a deliberate subset of requirements.txt.
+#
+# The suite must run without torch, transformers or PyTDC -- it asserts
+# properties of the code, not of the downloaded data, so CI should not need a
+# 2 GB model download or network access to tell you the splits are still
+# leakage-free. The handful of tests that do want the real panels skip
+# themselves when data/raw is empty.
+numpy>=1.26,<2
+pandas>=2.0
+scipy>=1.11
+scikit-learn>=1.5
+biopython>=1.83
+rapidfuzz>=3.9
+joblib>=1.3
+
+pytest>=8.0

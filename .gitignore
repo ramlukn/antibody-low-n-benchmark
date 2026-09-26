@@ -5,6 +5,10 @@ __pycache__/
 .ipynb_checkpoints/
 
 # data + model caches (regenerate with `make data embed`)
+# Both forms, so `data` may also be a symlink to a larger disk -- the embedding
+# cache is 16 MB and the TDC downloads are not something you want duplicated
+# across git worktrees.
+data
 data/
 !data/.gitkeep
 

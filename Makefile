@@ -1,9 +1,10 @@
 PY ?= .venv/bin/python
 
-.PHONY: help setup data embed baselines run figures all clean-results
+.PHONY: help setup test data embed baselines run figures all clean-results
 
 help:
 	@echo "make setup      create .venv and install requirements"
+	@echo "make test       run the test suite (no data or GPU needed)"
 	@echo "make data       download TDC datasets, report splits and leakage"
 	@echo "make embed      cache frozen ESM-2 embeddings (~4 min on an M-series Mac)"
 	@echo "make baselines  Phase 2 audit of the cheap descriptor baselines"
@@ -15,6 +16,10 @@ setup:
 	python3 -m venv .venv
 	$(PY) -m pip install --upgrade pip
 	$(PY) -m pip install -r requirements.txt
+	$(PY) -m pip install -r requirements-test.txt
+
+test:
+	$(PY) -m pytest -q
 
 data:
 	$(PY) scripts/01_prepare_data.py
