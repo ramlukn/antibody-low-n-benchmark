@@ -24,3 +24,4 @@ data/
 results/*.log
 results/_qc.csv
 results/learning_curves_quick.csv
+results/pooling_ablation_quick.csv

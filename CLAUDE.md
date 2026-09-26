@@ -30,6 +30,7 @@ make data        # TDC downloads, cluster and leakage summaries
 make embed       # frozen ESM-2 650M forward pass, cached (~4 min M-series)
 make quick       # 3-seed sanity sweep (~2 min)
 make run         # the full 23,040-fit sweep (~40-60 min on 12 cores)
+make pooling     # pooling ablation, 6,400 fits (~20 min); builds 3 extra caches
 make figures     # every table and figure in the README
 ```
 
@@ -81,6 +82,10 @@ suite; if a change makes one fail, the change is wrong until proven otherwise.
 - **The `random` feature set is the floor.** Gaussian noise must not beat an
   informative feature set in any group. If it does, something is manufacturing
   skill.
+- **Runs are bit-for-bit reproducible.** The pooling ablation builds its feature
+  bank independently of the main sweep, yet reproduces the main experiment's
+  mean-pooled scores exactly across all 1,280 overlapping cells. A test asserts
+  `atol=1e-12`. If that ever loosens, seeding has drifted.
 
 ## Conventions
 
@@ -129,6 +134,15 @@ and say in the commit message which claim changed.
   on the realised `n_train`, never on the presence of an `"all"` row.
 - **`config.py` creates directories on import.** Importing `lown` anywhere makes
   empty `data/`, `results/` and `figures/` appear.
+- **`df.head` is a method, not the `head` column.** Several tables here have a
+  column literally named `head` (the model head). `df.head == "linear"` compares a
+  bound method to a string and is silently **always False**, which makes any
+  `assert subset.empty` pass vacuously. Always use `df["head"]`. Every test that
+  filters a table should also assert the filter matched something.
+- **Pooling caches are keyed by readout.** `cache_paths(model, pooling)` keeps
+  mean at the original unsuffixed filename so the 16 MB cache from the main
+  experiment stays valid; the others get a suffix. Do not "tidy" that asymmetry
+  away.
 
 ## Git
 
