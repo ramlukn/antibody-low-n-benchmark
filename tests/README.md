@@ -4,7 +4,7 @@
 make test        # or: pytest -q
 ```
 
-156 tests, about seven seconds, no GPU and no downloads. The suite deliberately
+201 tests, about eight seconds, no GPU and no downloads. The suite deliberately
 does **not** depend on `torch`, `transformers` or `PyTDC` — see
 `requirements-test.txt`. The point is that you can check the benchmark's
 methodology is still intact without spending four minutes on a model forward
@@ -21,7 +21,9 @@ modules that implement them.
 | `test_heads.py` | the no-leakage claim: no test-set statistic can reach the fit, plus honest degradation at N=25 with two positives |
 | `test_features.py` | the advertised dimensions (42 / 28 / 81), `feature_names` lining up with the matrix columns, and the regex CDR annotation's behaviour **including how it fails** |
 | `test_scaling.py` | the power-law fit recovers a known curve, the inversion is a true inverse, the ceiling cap actually binds, and the code refuses to fit rather than inventing a number |
-| `test_results.py` | every headline number in the README, read back off the committed tables in `results/` |
+| `test_embeddings.py` | the pooling arithmetic: no special token or padding may reach a pooled vector, and batching must not change a chain's embedding |
+| `test_pooling_analysis.py` | the ablation's verdict helpers, on synthetic input where the right answer is known |
+| `test_results.py` | every headline number in the README, read back off the committed tables in `results/` — including the pooling ablation |
 
 ## How the interesting tests work
 

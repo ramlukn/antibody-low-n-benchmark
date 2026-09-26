@@ -23,6 +23,24 @@ COLORS = {
     "esm2": "#e06c2b",
     "esm2+cheap": "#7d3c98",
 }
+
+# The pooling ablation (scripts/05_pooling.py) compares four readouts of the
+# same frozen model, so it gets its own scale: mean keeps ESM-2's orange from
+# every other figure, and the alternatives shade away from it.
+POOLING_COLORS = {
+    "cheap": "#1f4e79",
+    "esm2_mean": "#e06c2b",
+    "esm2_max": "#c0392b",
+    "esm2_cls": "#b8a07e",
+    "esm2_mean+max": "#7d3c98",
+}
+POOLING_LABELS = {
+    "cheap": "cheap (all descriptors)",
+    "esm2_mean": "ESM-2, mean pooled",
+    "esm2_max": "ESM-2, max pooled",
+    "esm2_cls": "ESM-2, BOS token",
+    "esm2_mean+max": "ESM-2, mean + max",
+}
 LABELS = {
     "random": "random control",
     "aac": "length + AA composition",
@@ -323,3 +341,65 @@ def scaling_figure(agg_env: pd.DataFrame, dataset: str, targets, path=None):
     )
     fig.tight_layout(rect=(0, 0, 1, 0.92))
     return _save(fig, path or FIGURES / "fig6_scaling_extrapolation.png")
+
+
+def pooling_figure(agg: pd.DataFrame, targets, path=None):
+    """The pooling ablation: four readouts of one frozen model, plus the baseline.
+
+    One panel per target, cluster-held-out split only.  The patch targets -- the
+    ones where "mean pooling throws away where things are" predicts max pooling
+    should win -- are flagged in their titles, so the figure can be read as a
+    test of that prediction rather than a general comparison.
+    """
+    from .config import TAP_TARGET_LABELS
+
+    patch = {"PSH", "PPC", "PNC"}
+    panels = [("SAbDab_Chen", "developability")] + [("TAP", t) for t in targets]
+    ncol = 3
+    nrow = int(np.ceil(len(panels) / ncol))
+    fig, axes = plt.subplots(nrow, ncol, figsize=(4.0 * ncol, 3.1 * nrow), squeeze=False)
+
+    for ax, (ds, tgt) in zip(axes.ravel(), panels):
+        sub = agg[(agg.dataset == ds) & (agg.target == tgt)]
+        for feat, d in sub.groupby("features"):
+            d = d.sort_values("n_train")
+            c = POOLING_COLORS.get(feat, "k")
+            ax.plot(d.n_train, d["mean"], marker="o", ms=3.5, lw=1.6, color=c)
+            ax.fill_between(d.n_train, d["mean"] - d["std"], d["mean"] + d["std"],
+                            color=c, alpha=0.12, lw=0)
+        ax.set_xscale("log")
+        ticks = _ticks(sub)
+        if ticks:
+            ax.set_xticks(ticks)
+            ax.set_xticklabels([str(t) for t in ticks], fontsize=7.5)
+            ax.xaxis.set_minor_locator(matplotlib.ticker.NullLocator())
+        ax.set_xlabel("training antibodies (N)")
+        if ds == "SAbDab_Chen":
+            ax.set_ylabel("ROC-AUC")
+            ax.axhline(0.5, color="k", ls=":", lw=1, zorder=0)
+            title = "SAbDab_Chen developability"
+        else:
+            ax.set_ylabel("Spearman $\\rho$")
+            ax.axhline(0.0, color="k", ls=":", lw=1, zorder=0)
+            title = TAP_TARGET_LABELS.get(tgt, tgt)
+            if tgt in patch:
+                title += "\n(patch property: max pooling should win here)"
+        ax.set_title(title, fontsize=9.5)
+
+    for ax in axes.ravel()[len(panels):]:
+        ax.set_visible(False)
+
+    handles = [
+        plt.Line2D([], [], color=POOLING_COLORS[f], marker="o", ms=4, lw=1.8,
+                   label=POOLING_LABELS[f])
+        for f in POOLING_COLORS
+    ]
+    fig.legend(handles=handles, loc="lower center", ncol=5, fontsize=8,
+               bbox_to_anchor=(0.5, -0.02))
+    fig.suptitle(
+        "Does the readout explain the result? Four poolings of the same frozen ESM-2\n"
+        "cluster-held-out split, best head per point, " + _seed_note(agg),
+        fontsize=11, y=1.01,
+    )
+    fig.tight_layout()
+    return _save(fig, path or FIGURES / "fig8_pooling_ablation.png")

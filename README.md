@@ -103,6 +103,60 @@ wide enough that the honest answer is "not by collecting more of this kind of da
 
 ![TAP learning curves](figures/fig2_tap_learning_curves.png)
 
+## Ruling out the obvious objection: is it just the pooling?
+
+The first thing anyone says about the result above is that it is not a fact about
+ESM-2, it is a fact about the readout. Mean pooling over ~120 residues is the
+cheapest possible summary of a per-residue model, and a hydrophobic patch is a
+*local* property. Maybe the representation is fine and the average is what destroys it.
+
+That objection makes a falsifiable prediction. Three of TAP's five targets are
+explicitly **patch** properties — patches of surface hydrophobicity, of positive charge,
+of negative charge. Max pooling asks "does a residue like this exist anywhere", which is
+much closer to what those metrics measure. So if pooling is the problem, max pooling
+should beat mean pooling *on those three targets specifically*.
+
+It does not. It loses on all three, significantly, and it loses to mean pooling by
+**more** on the patch targets than on the ones that are not patch properties — the exact
+opposite of the prediction.
+
+![pooling ablation](figures/fig8_pooling_ablation.png)
+
+Seed-paired, largest training-set size, linear head, cluster-held-out split:
+
+| readout | vs. mean pooling | where |
+|---|---:|---|
+| max | **−0.101** | the three patch targets, mean over PSH / PPC / PNC |
+| max | −0.088 | the three non-patch targets |
+| max | −0.148 | PPC, its single worst target, p < 0.0001 |
+| BOS token | −0.034 to −0.083 | never significantly better than mean, anywhere |
+| mean + max (5120-d) | −0.029 to +0.000 | one significant gain in 12 cells, on CDR_Length |
+
+Max pooling is worse than mean pooling on 10 of 12 (target, head) cells at the largest N,
+and on all six under the linear head. Concatenating max onto mean doubles the input width
+to 5,120 dimensions and buys one significant improvement — on CDR_Length, the target that
+chain length alone predicts at ρ 0.996, under the head that struggles most at TAP's small
+N. Nothing on any patch target. And no readout rescues frozen ESM-2 against the cheap
+descriptors on TAP: there is no significant win for any of the four, on any target.
+
+So the readout is not the explanation, and "we just pooled it badly" is no longer
+available as a reason to discount the headline. What is left is the less comfortable
+reading: a frozen general-protein language model, mean-pooled, does not encode these
+biophysical properties in a form a small head can extract from a hundred examples — and
+giving it three more ways to be read out does not change that.
+
+Two caveats travel with this. Max pooling over a *frozen* model is still a crude readout;
+a learned attention pooling, or a fine-tuned model, is a different experiment and this
+says nothing about it. And every readout here is still sequence-only and position-free in
+the same sense — none of them knows which residues are spatially adjacent, which is what a
+patch actually is. That is the structural argument, and it is untested here.
+
+The ablation is 6,400 additional fits and reproduces the main experiment's mean-pooled
+numbers **bit-for-bit** across all 1,280 overlapping cells, which is a free check that the
+split and subsampling machinery is deterministic. Run it with `make pooling`; tables in
+[`results/pooling_paired.csv`](results/pooling_paired.csv) and
+[`results/pooling_patch_verdict.csv`](results/pooling_patch_verdict.csv).
+
 ## Method
 
 **Features.** Six sets, all evaluated identically.
@@ -153,9 +207,13 @@ so no structure handling.
 - **One embedding model.** ESM-2 650M only, mean-pooled. An antibody-specific model
   (AntiBERTy, AbLang, IgBert) is trained on exactly the redundancy that makes this problem
   hard and might behave differently. That is the obvious next experiment, not a footnote.
-- **Mean pooling throws away where things are.** A hydrophobic patch is a local, spatial
-  property, and averaging over residues is the cheapest possible readout of a per-residue
-  model. Part of what this benchmark measures is how much that costs.
+- **Mean pooling throws away where things are** — but that is not why ESM-2 loses. A
+  hydrophobic patch is a local, spatial property, and averaging over residues is the
+  cheapest possible readout of a per-residue model. So I tested it: max pooling, the BOS
+  token and mean+max all do *worse* than the mean, and max does worst of all on precisely
+  the patch targets where it should have won. See the ablation above. What remains untested
+  is learned pooling, and the fact that no sequence-only readout knows which residues are
+  spatially adjacent.
 - **The extrapolations are extrapolations.** Seven points and three free parameters. The
   fitted ceiling is capped a fixed margin above the best score observed, because otherwise it
   parks at 1.0 and predicts absurd sample sizes. Anything past the largest measured N is a

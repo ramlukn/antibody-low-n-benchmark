@@ -340,3 +340,155 @@ def test_extrapolation_table_flags_its_own_reliability():
     flagged = extra.dropna(subset=["max_extrapolation_factor"])
     overreach = flagged[flagged["max_extrapolation_factor"] > 10.0]
     assert not overreach["reliable"].any()
+
+
+# ==========================================================================
+# The pooling ablation (scripts/05_pooling.py)
+#
+# The first objection to this benchmark's headline result is about the readout
+# rather than the model: mean pooling over ~120 residues is the cheapest
+# possible summary, and a hydrophobic patch is a local property. The ablation
+# tests the specific prediction that falls out of that objection -- max pooling
+# should beat mean pooling on TAP's three patch targets -- and refutes it.
+# ==========================================================================
+PATCH_TARGETS = {"PSH", "PPC", "PNC"}
+
+
+@pytest.fixture(scope="module")
+def ablation():
+    return load("pooling_ablation.csv")
+
+
+@pytest.fixture(scope="module")
+def pooling_paired():
+    return load("pooling_paired.csv")
+
+
+def test_ablation_sweep_is_balanced(ablation):
+    assert len(ablation) == 6_400
+    assert sorted(ablation["features"].unique()) == [
+        "cheap", "esm2_cls", "esm2_max", "esm2_mean", "esm2_mean+max",
+    ]
+    assert sorted(ablation["head"].unique()) == ["linear", "mlp"]
+    # Cluster-held-out only: a random split's leakage would flatter every
+    # readout equally and say nothing about which one generalises.
+    assert ablation["split"].unique().tolist() == ["cluster"]
+    assert ablation["seed"].nunique() == 20
+    assert not ablation["degenerate"].any()
+    sizes = ablation.groupby(
+        ["dataset", "target", "seed", "n_request"]
+    ).size().unique()
+    assert sizes.tolist() == [10]  # 5 feature sets x 2 heads
+
+
+def test_ablation_reproduces_the_main_experiment_exactly(ablation, sweep):
+    """A strong determinism check, and a free replication.
+
+    The ablation builds its feature bank independently of the main sweep, but
+    the split machinery and the nested subsampling are seeded identically. The
+    mean-pooled ESM-2 scores must therefore match the main experiment's
+    cluster-split rows *exactly*, not merely closely.
+    """
+    key = ["dataset", "target", "head", "n_request", "seed"]
+    a = ablation[ablation.features == "esm2_mean"].set_index(key)
+    b = sweep[(sweep.features == "esm2") & (sweep.split == "cluster")].set_index(key)
+    common = a.index.intersection(b.index)
+    assert len(common) == 1_280
+
+    for metric in ("auc", "spearman"):
+        left = a.loc[common, metric]
+        right = b.loc[common, metric]
+        both = left.notna() & right.notna()
+        assert both.sum() > 0
+        assert np.allclose(left[both], right[both], rtol=0, atol=1e-12), metric
+
+
+def test_max_pooling_does_not_beat_mean_on_the_patch_targets(pooling_paired):
+    """The prediction under test, refuted.
+
+    If mean pooling were what holds frozen ESM-2 back, max pooling -- a patch
+    detector -- should win on PSH, PPC and PNC. Under the linear head it loses
+    on all three, significantly.
+    """
+    rows = pooling_paired[
+        (pooling_paired.features == "esm2_max")
+        & (pooling_paired.baseline == "esm2_mean")
+        & (pooling_paired.n_request == "all")
+        & (pooling_paired["head"] == "linear")
+        & (pooling_paired.target.isin(PATCH_TARGETS))
+    ]
+    assert len(rows) == 3
+    assert (rows["mean_delta"] < 0).all(), "max pooling won somewhere it should not have"
+    assert (rows["p_wilcoxon"] < 0.05).all()
+
+
+def test_the_patch_prediction_is_refuted_in_the_verdict_table():
+    """Max pooling is not merely unhelpful, it is *worse* on patch targets.
+
+    The objection predicts the patch row should sit above the non-patch row.
+    It sits below, under the linear head, with zero significant wins.
+    """
+    verdict = load("pooling_patch_verdict.csv").set_index(["target_kind", "head"])
+
+    patch = verdict.loc[("patch", "linear")]
+    not_patch = verdict.loc[("not patch", "linear")]
+    assert patch["n_targets"] == 3 and not_patch["n_targets"] == 3
+    assert patch["mean_delta"] < 0
+    assert patch["mean_delta"] < not_patch["mean_delta"]
+    assert patch["n_significant_wins"] == 0
+    assert patch["best"] < 0  # not one patch target improved
+
+
+def test_no_readout_rescues_esm2_against_the_cheap_descriptors(pooling_paired):
+    """The headline survives the ablation.
+
+    Across every target and head at the largest N, no alternative pooling
+    produces a significant win for ESM-2 over the cheap descriptors on TAP.
+    """
+    tap = pooling_paired[
+        (pooling_paired.dataset == "TAP")
+        & (pooling_paired.baseline == "cheap")
+        & (pooling_paired.n_request == "all")
+    ]
+    assert len(tap) > 0
+    wins = tap[(tap.mean_delta > 0) & (tap.p_wilcoxon < 0.05)]
+    assert wins.empty, f"a readout beat the descriptors on TAP:\n{wins}"
+
+
+def test_the_frozen_bos_token_is_the_control_it_was_meant_to_be(pooling_paired):
+    """cls has never been trained to summarise anything, and it shows."""
+    rows = pooling_paired[
+        (pooling_paired.features == "esm2_cls")
+        & (pooling_paired.baseline == "esm2_mean")
+        & (pooling_paired.n_request == "all")
+    ]
+    assert len(rows) > 0
+    # Never better than mean pooling anywhere, at any significance.
+    assert not ((rows.mean_delta > 0) & (rows.p_wilcoxon < 0.05)).any()
+
+
+def test_concatenating_max_onto_mean_adds_nothing(pooling_paired):
+    """mean+max doubles the dimension and buys no significant gain.
+
+    If max pooling carried information complementary to the mean, this is where
+    it would show up. It shows up in exactly one place, and that place is the
+    target the README already calls a giveaway.
+    """
+    rows = pooling_paired[
+        (pooling_paired.features == "esm2_mean+max")
+        & (pooling_paired.baseline == "esm2_mean")
+        & (pooling_paired.n_request == "all")
+    ]
+    assert len(rows) == 12  # 6 targets x 2 heads
+    gains = rows[(rows.mean_delta > 0) & (rows.p_wilcoxon < 0.05)]
+
+    # The sole significant gain: CDR_Length under the MLP. CDR_Length is the
+    # target chain length alone predicts at rho 0.996, and the MLP is the head
+    # that struggles most at TAP's small N -- so this is the one cell where a
+    # wider input helps an under-fitting model on an almost-trivial target. It
+    # is not evidence that max pooling recovers spatial information.
+    assert set(zip(gains["target"], gains["head"])) == {("CDR_Length", "mlp")}
+    assert (gains["mean_delta"] < 0.07).all()
+
+    # Nothing on any patch target, which is where the objection predicted it.
+    assert not gains["target"].isin(PATCH_TARGETS).any()

@@ -1,6 +1,6 @@
 PY ?= .venv/bin/python
 
-.PHONY: help setup test data embed baselines run figures all clean-results
+.PHONY: help setup test data embed baselines run pooling figures all clean-results
 
 help:
 	@echo "make setup      create .venv and install requirements"
@@ -9,6 +9,7 @@ help:
 	@echo "make embed      cache frozen ESM-2 embeddings (~4 min on an M-series Mac)"
 	@echo "make baselines  Phase 2 audit of the cheap descriptor baselines"
 	@echo "make run        the full learning-curve sweep (~40 min on 12 cores)"
+	@echo "make pooling    pooling ablation: is mean pooling why ESM-2 loses?"
 	@echo "make figures    tables and figures from results/learning_curves.csv"
 	@echo "make all        everything, in order"
 
@@ -35,6 +36,10 @@ run:
 
 quick:
 	$(PY) scripts/04_learning_curves.py --quick
+
+pooling:
+	$(PY) scripts/02_embed.py --poolings mean max cls mean+max
+	$(PY) scripts/05_pooling.py
 
 figures:
 	$(PY) scripts/06_figures.py
