@@ -1,0 +1,49 @@
+name: tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+          cache-dependency-path: requirements-test.txt
+
+      # Deliberately the test-only subset: no torch, no transformers, no PyTDC.
+      # The suite asserts properties of the code, so CI needs neither a model
+      # download nor network access. The few tests that want the real panels
+      # skip themselves.
+      - name: Install test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+
+      - name: Run tests
+        run: pytest -q
+
+      # The committed tables in results/ are part of the published artefact --
+      # the README's numbers are read off them. Importing lown creates empty
+      # data/ and figures/ directories, which is expected; anything else having
+      # changed means a test wrote where it should not have.
+      - name: Check the working tree is clean
+        run: |
+          git status --porcelain -- results figures src scripts tests
+          test -z "$(git status --porcelain -- results figures src scripts tests)"

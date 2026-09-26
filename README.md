@@ -2,6 +2,8 @@
 
 **A low-N benchmark for antibody property prediction.**
 
+[![tests](https://github.com/ramlukn/antibody-low-n-benchmark/actions/workflows/ci.yml/badge.svg)](https://github.com/ramlukn/antibody-low-n-benchmark/actions/workflows/ci.yml)
+
 Wet-lab measurements are expensive, so antibody property models get fitted on dozens to
 hundreds of examples, not millions. Almost nobody benchmarks that regime honestly. This
 repository takes frozen ESM-2 embeddings, trains simple heads on two public antibody
@@ -144,6 +146,10 @@ so no structure handling.
   motif anchors, the framework-3 cysteine through to the J-segment `WGxG` / `FGxG`. It fires on
   90% of heavy chains and 93% of light chains in SAbDab and its lengths track TAP's own total-CDR
   metric at Spearman 0.66. Good enough to be a feature, not good enough to be a measurement.
+  It is also offset: the anchor quantifier is lazy, so the captured loop keeps one residue of
+  the anchor and every reported CDR-H3 length is one longer than the canonical definition. A
+  constant shift does not move a correlation, but it does mean these are not CDR-H3 lengths
+  you should compare against a numbering scheme.
 - **One embedding model.** ESM-2 650M only, mean-pooled. An antibody-specific model
   (AntiBERTy, AbLang, IgBert) is trained on exactly the redundancy that makes this problem
   hard and might behave differently. That is the obvious next experiment, not a footnote.
@@ -190,6 +196,38 @@ pole at about an hour on twelve cores; `make quick` runs a three-seed sanity ver
 minutes. Everything except `data/` is committed, so the figures above render without running
 anything.
 
+## Tests
+
+```bash
+make test
+```
+
+156 tests in about seven seconds, no GPU and no downloads. Every claim above that is a claim
+about *method* rather than about data is asserted directly, because those are the ones worth
+distrusting:
+
+- **The leakage claim.** On a synthetic panel of twelve five-member clonal families, the
+  cluster-held-out split leaks exactly zero near-duplicates and the random split leaks over
+  80%. Clustering must neither break a family apart nor merge unrelated ones.
+- **The pairing claim.** The subsamples really are nested — N=25 is a prefix of N=50 — the
+  test set is identical at every point on a curve, and every feature set and head sees the
+  same rows within a seed. That last one is what licenses the Wilcoxon signed-rank tests;
+  without it they are comparing different antibodies.
+- **The no-leakage-into-the-fit claim.** Rather than inspecting the pipeline, the tests check
+  that a test row's prediction is unchanged when the other test rows are removed, shuffled,
+  duplicated, or joined by rows shifted by 1000 units. A `StandardScaler` accidentally fitted
+  on the combined data — the classic low-N leak — fails all four.
+- **The numbers in this README.** They are read back off the committed tables in `results/`,
+  so a re-run that moves a claim has to update the prose deliberately rather than silently
+  disagree with it. That includes the 23,040 row count, the 0.096 split gap, the 1,173-member
+  naive Fv cluster, and each entry in the paired comparison table.
+- **The floor.** The Gaussian-noise control must never beat an informative feature set in any
+  of the 240 dataset × target × split × head groups. If noise ever won, the fitting procedure
+  would be manufacturing skill and every other number here would be suspect.
+
+Details, including how the protocol is observed rather than trusted, are in
+[`tests/README.md`](tests/README.md).
+
 ## Layout
 
 ```
@@ -198,6 +236,7 @@ scripts/      one numbered script per phase (see scripts/README.md)
 results/      every table, including the 23,040-row per-fit sweep output
 figures/      every figure in this README
 notebooks/    analysis walkthrough over the saved results
+tests/        invariant tests for the split, protocol and scaling claims
 ```
 
 ## Licence and data

@@ -11,3 +11,8 @@ Run in order. Each one is independent and writes to `results/` or `figures/`.
 | `06_figures.py` | 5 | headline tables and every figure in the README | seconds |
 
 `04` accepts `--quick` (3 seeds, linear head only) for a two-minute sanity check.
+
+The methodology these scripts implement is covered by a fast, offline test suite
+(`make test`); see [`../tests/README.md`](../tests/README.md). It needs neither the
+TDC downloads nor the ESM-2 weights, so it is the quickest way to check nothing
+has drifted before starting an hour-long sweep.
